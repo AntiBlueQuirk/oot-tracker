@@ -101,8 +101,8 @@ var gridpreset_natural = [
     [
         "Bottle",
         "Bottle with Letter",
-		"Piece of Heart",
-		"Heart Container",
+		"Ice Trap",
+		"Magic Meter",
         "Child Trade",
         "Adult Trade",
 	],
@@ -137,6 +137,7 @@ var gridpreset_natural = [
         "Nocturne of Shadow",
         "Requiem of Spirit",
         "Prelude of Light",
+		"Piece of Heart",
     ],
     [
         "Forest Medallion",
@@ -145,6 +146,7 @@ var gridpreset_natural = [
         "Shadow Medallion",
         "Spirit Medallion",
         "Light Medallion",
+		"Heart Container",
     ],
     [
         "Kokiri Emerald",
@@ -153,5 +155,6 @@ var gridpreset_natural = [
         "Wallet",
         "Gerudo Membership Card",
         "Gold Skulltula Token",
+		"Double Defense",
     ]
 ]
