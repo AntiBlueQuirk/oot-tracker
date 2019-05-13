@@ -360,6 +360,7 @@ var dungeons = [
         x: "52.0%",
         y: "20.0%",
         chestlist: {
+            'Malon Egg':                      'Malon at Castle (Weird Egg)',
             'Impa at Castle':                 'Zelda\'s Lullaby',
             'Child Shooting Gallery':         '',
             'Bombchu Bowling Bomb Bag':       'Bombchu Bowling 1',
