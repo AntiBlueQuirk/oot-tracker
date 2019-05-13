@@ -143,18 +143,25 @@ function loadCookie() {
     //medallions = normalizeObj(cookieobj.medallions));
     try {
 		initGridRow(deserializeLayout(normalizeObj(cookieobj.grid)));
+	} catch (error) {
+		console.error(err.toString()+"\n"+(err.stack ? err.stack.toString() : ""))
+		alert("I failed to load your layout for some reason.\nThe data has been lost.");
+		initGridRow(deserializeLayout(serializeLayout(gridpreset_natural)));
+	}
+	try {
 		deserializeItems(normalizeObj(cookieobj.obtainedItems));
 		deserializeChests(normalizeObj(cookieobj.chests));
 		deserializeDungeonChests(normalizeObj(cookieobj.dungeonChests));
 	} catch (error) {
+		console.error(err.toString()+"\n"+(err.stack ? err.stack.toString() : ""))
 		alert("I failed to load your tracker state for some reason.\nThe data has been lost.");
 		stateInit();
 		stateLoadWorld(logic_world);
-		initGridRow(deserializeLayout(serializeLayout(gridpreset_natural)));
 	}
 	try {
 		deserializeSettings(normalizeObj(cookieobj.settings));
 	} catch (error) {
+		console.error(err.toString()+"\n"+(err.stack ? err.stack.toString() : ""))
 		alert("I failed to load your logic settings for some reason.\nThe data has been lost.");
 		ResetLogic();
 	}
@@ -562,6 +569,7 @@ function showSettings(sender) {
         updateGridItemAll();
         showTracker('mapdiv', elsName('showmap')[0]);
         el('itemconfig').style.display = 'none';
+		el('settingsbutton').style.removeProperty('width');
         //el('rowButtons').style.display = 'none';
         sender.innerHTML = '🔧';
         saveCookie();
@@ -677,6 +685,7 @@ function EditMode() {
     el('itemconfig').style.display = '';
     //el('rowButtons').style.display = 'flex';
 
+    el('settingsbutton').style.width = 'auto';
     el('settingsbutton').innerHTML = 'Exit Edit Mode';
 }
 
@@ -916,7 +925,8 @@ function setGridItem(item, row, index) {
     while (!itemLayout[row][index]) {
         addItem(row);
     }
-
+	if (item == "Sold Out") item = 'blank';
+	
     itemLayout[row][index] = item;
     updateGridItem(row, index);
 }
@@ -960,7 +970,7 @@ function gridItemClick(row, col, inner, rmb) {
             itemLayout[row][col] = selected.item;
             updateGridItem(row, col);
             selected = {};
-            el(old).style.opacity = 1;
+            //el(old).style.opacity = 1;
         } else if (selected.row !== undefined) {
             itemGrid[selected.row][selected.col]['item'].style.border = '1px solid white';
 
@@ -1109,7 +1119,7 @@ function itemConfigClick (sender) {
         itemLayout[selected.row][selected.col] = item;
         updateGridItem(selected.row, selected.col);
 
-        el(old).style.opacity = 1;
+        //el(old).style.opacity = 1;
 
         selected = {};
     } else {
@@ -1308,6 +1318,7 @@ function init() {
 		catch (err)
 		{
 			cookielock = false; //needed since loadCookie returned abnormally.
+			console.error(err.toString()+"\n"+(err.stack ? err.stack.toString() : ""))
 			alert("There was an error loading your saved data. Unfortunately, I have to reset it. This may have been caused by an update.")
 			setCookie({});
 			loadCookie();
