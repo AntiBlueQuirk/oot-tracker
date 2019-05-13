@@ -1,9 +1,7 @@
-# Ocarina of Time Randomizer Tracker
+# Ocarina of Time Randomizer Tracker (Blue Edition)
 
-Item tracker for Ocarina of Time randomizer
+Item tracker for Ocarina of Time Randomizer, based the great tracker by TestRunnerSRL at [oot-tracker](https://github.com/TestRunnerSRL/oot-tracker)
 
-Logic updated to 4.0
+Supports all logic of Randomizer 4.0 (except Shopsanity and Keysanity for now)
 
-Does not support any sanity options.
-
-Does not take keys into consideration
+[Site](https://antibluequirk.github.io/oot-tracker/)
