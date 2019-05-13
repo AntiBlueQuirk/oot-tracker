@@ -1,15 +1,3 @@
-var defaultMedallions = {
-    ForestMedallion: 0,
-    FireMedallion: 0,
-    WaterMedallion: 0,
-    ShadowMedallion: 0,
-    SpiritMedallion: 0,
-    LightMedallion: 0,
-    KokiriEmerald: 0,
-    GoronRuby: 0,
-    ZoraSapphire: 0,
-};
-var medallions = defaultMedallions;
 var dungeonImg = [
     'Unknown',
     'Slingshot0',
@@ -23,6 +11,20 @@ var dungeonImg = [
 ];
 ganonlogic = 'Open';
 showprizes = false;
+startsopen = {
+	Forest: true,
+	KakarikoGate: false,
+	DoorofTime: false,
+	ZorasFountain: false,
+};
+shuffled = {
+	Ocarinas: false,
+	WeirdEgg: false,
+	GerudoCard: false,
+};
+glitches = {
+	WTnoZora: false,
+};
 lensLogic = 'All'
 chuInLogic = false;
 
@@ -34,11 +36,14 @@ var selected = {};
 
 var dungeonSelect = 0;
 
+function el(id) { return document.getElementById(id); }
+function elsName(id) { return document.getElementsByName(id); }
+
 function setCookie(obj) {
     var d = new Date();
     d.setTime(d.getTime() + (365 * 24 * 60 * 60 * 1000));
     var expires = "expires=" + d.toUTCString();
-    var val = JSON.stringify(obj);
+    var val = encodeURIComponent(JSON.stringify(obj));
     document.cookie = "key=" + val + ";" + expires + ";path=/";
 }
 
@@ -51,35 +56,80 @@ function getCookie() {
             c = c.substring(1);
         }
         if (c.indexOf(name) == 0) {
-            return JSON.parse(c.substring(name.length, c.length));
+            return JSON.parse(decodeURIComponent(c.substring(name.length, c.length)));
         }
     }
     return {};
 }
 
-var cookieDefault = {
-    map: 1,
-    iZoom: 100,
-    mZoom: 100,
-    mPos: 0,
-    glogic: 'Open',
-    prize: 1,
-    medallions: defaultMedallions,
-    items: defaultItemGrid,
-    obtainedItems: items,
-    chests: serializeChests(),
-    dungeonChests: serializeDungeonChests(),
+window.chests_open = {}; //technically, this gets set as part of logic, but we call chestOpen before logic setup
+function chestOpen(chest) {
+	var target = chest.target;
+	return target in chests_open && chests_open[target] || false;
+}
+function chestAccessible(chest) {
+	return (chest.type != 'skulltula' || showSkulltulas) &&
+	       logic_state.can_reach(logic_world.getLocation(chest.target));
+}
+function regionAccessible(target) {
+	return logic_state.can_reach(logic_world.getRegion(target));
 }
 
+function dungeonLocCount(dungeon) {
+	return Object.values(dungeon.chestlist).reduce((a, c) => a + (
+	//count where this is true:
+		c.type != 'skulltula' || showSkulltulas
+	? 1 : 0), 0);
+}
+function dungeonAccessible(dungeon) {
+	//return dungeon.regions.reduce((a, r) => a + (regionAccessible(r) ? 1 : 0), 0);
+	return Object.values(dungeon.chestlist).reduce((a, c) => a + (
+	//count where this is true:
+		chestAccessible(c)
+	? 1 : 0), 0);
+}
+function chestClass(chest)
+{
+	if (chestOpen(chest)) return "opened";
+	if (chestAccessible(chest)) return "available";
+	return "unavailable";
+}
+function dungeonClass(dungeon)
+{
+	//if (chestOpen(target)) return "opened";
+	var acc = dungeonAccessible(dungeon);
+	if (acc == dungeonLocCount(dungeon)) return "available";
+	if (acc) return "possible";
+	return "unavailable";
+}
+
+var cookieDefault = {
+    map: 1,
+    iZoom: 150,
+    mZoom: 100,
+    mPos: 0,
+    prize: 1,
+	showSkulltulas: false,
+    //medallions: defaultMedallions,
+    grid: serializeLayout(gridpreset_natural),
+    obtainedItems: {},
+    chests: serializeChests(),
+    dungeonChests: serializeDungeonChests(),
+	settings: {},
+}
+var showSkulltulas = false;
+
 var cookielock = false;
+
+function normalizeObj(obj) { return JSON.parse(JSON.stringify(obj)); } 
 function loadCookie() {
     if (cookielock) {
         return;
     }
+	
+	cookielock = true;
 
-    cookielock = true;
-
-    cookieobj = getCookie();
+	cookieobj = getCookie();
 
     Object.keys(cookieDefault).forEach(function(key) {
         if (cookieobj[key] === undefined) {
@@ -87,32 +137,45 @@ function loadCookie() {
         }
     });
 
-    medallions = JSON.parse(JSON.stringify(cookieobj.medallions));
-    initGridRow(JSON.parse(JSON.stringify(cookieobj.items)));
-    items = JSON.parse(JSON.stringify(cookieobj.obtainedItems));
-    deserializeChests(JSON.parse(JSON.stringify(cookieobj.chests)));
-    deserializeDungeonChests(JSON.parse(JSON.stringify(cookieobj.dungeonChests)));
-
+	stateInit();
+	stateLoadWorld(logic_world);
+    
+    //medallions = normalizeObj(cookieobj.medallions));
+    try {
+		initGridRow(deserializeLayout(normalizeObj(cookieobj.grid)));
+		deserializeItems(normalizeObj(cookieobj.obtainedItems));
+		deserializeChests(normalizeObj(cookieobj.chests));
+		deserializeDungeonChests(normalizeObj(cookieobj.dungeonChests));
+	} catch (error) {
+		alert("I failed to load your tracker state for some reason.\nThe data has been lost.");
+		stateInit();
+		stateLoadWorld(logic_world);
+		initGridRow(deserializeLayout(serializeLayout(gridpreset_natural)));
+	}
+	try {
+		deserializeSettings(normalizeObj(cookieobj.settings));
+	} catch (error) {
+		alert("I failed to load your logic settings for some reason.\nThe data has been lost.");
+		ResetLogic();
+	}
+	
     updateGridItemAll();
 
-    document.getElementsByName('showmap')[0].checked = !!cookieobj.map;
-    document.getElementsByName('showmap')[0].onchange();
-    document.getElementsByName('itemdivsize')[0].value = cookieobj.iZoom;
-    document.getElementsByName('itemdivsize')[0].onchange();
-    document.getElementsByName('mapdivsize')[0].value = cookieobj.mZoom;
-    document.getElementsByName('mapdivsize')[0].onchange();
+    elsName('showmap')[0].checked = !!cookieobj.map;
+    elsName('itemdivsize')[0].value = cookieobj.iZoom;
+    elsName('mapdivsize')[0].value = cookieobj.mZoom;
 
-    document.getElementsByName('mapposition')[cookieobj.mPos].click();
+    elsName('mapposition')[cookieobj.mPos].click();
 
-    document.getElementsByName('showprizes')[0].checked = !!cookieobj.prize;
-    document.getElementsByName('showprizes')[0].onchange();
-
-    for (rbuttonID in document.getElementsByName('ganonlogic')) {
-        rbutton = document.getElementsByName('ganonlogic')[rbuttonID];
-        if (rbutton.value == cookieobj.glogic) {
-            rbutton.click();
-        }
-    }
+    elsName('showprizes')[0].checked = !!cookieobj.prize;
+	
+	setSkulltulas(cookieobj.showSkulltulas);
+    
+	[
+		'showmap', 'itemdivsize', 'mapdivsize', 'showprizes',
+	].forEach(function (s) {
+		elsName(s)[0].onchange();
+	});
 
     cookielock = false;
 }
@@ -126,43 +189,86 @@ function saveCookie() {
 
     cookieobj = {};
 
-    cookieobj.map = document.getElementsByName('showmap')[0].checked ? 1 : 0;
-    cookieobj.iZoom = document.getElementsByName('itemdivsize')[0].value;
-    cookieobj.mZoom = document.getElementsByName('mapdivsize')[0].value;
+    cookieobj.map = elsName('showmap')[0].checked ? 1 : 0;
+    cookieobj.iZoom = elsName('itemdivsize')[0].value;
+    cookieobj.mZoom = elsName('mapdivsize')[0].value;
 
-    cookieobj.mPos = document.getElementsByName('mapposition')[1].checked ? 1 : 0;
+    cookieobj.mPos = elsName('mapposition')[1].checked ? 1 : 0;
 
-    cookieobj.prize = document.getElementsByName('showprizes')[0].checked ? 1 : 0;
-
-    for (rbuttonID in document.getElementsByName('ganonlogic')) {
-        rbutton = document.getElementsByName('ganonlogic')[rbuttonID];
+    cookieobj.prize = elsName('showprizes')[0].checked ? 1 : 0;
+    
+    for (rbuttonID in elsName('ganonlogic')) {
+        rbutton = elsName('ganonlogic')[rbuttonID];
         if (rbutton.checked) {
             cookieobj.glogic = rbutton.value;
         }
     }
 
-    cookieobj.medallions = JSON.parse(JSON.stringify(medallions));
-    cookieobj.items = JSON.parse(JSON.stringify(itemLayout));
-    cookieobj.obtainedItems = JSON.parse(JSON.stringify(items));
-    cookieobj.chests = JSON.parse(JSON.stringify(serializeChests()));
-    cookieobj.dungeonChests = JSON.parse(JSON.stringify(serializeDungeonChests()));
+    //cookieobj.medallions = normalizeObj(medallions));
+    cookieobj.grid = normalizeObj(serializeLayout());
+    cookieobj.obtainedItems = normalizeObj(serializeItems());
+    cookieobj.chests = normalizeObj(serializeChests());
+    cookieobj.dungeonChests = normalizeObj(serializeDungeonChests());
+	cookieobj.settings = normalizeObj(serializeSettings());
 
+	cookieobj.showSkulltulas = showSkulltulas;
+	
     setCookie(cookieobj);
 
     cookielock = false;
 }
 
+function serializeLayout(layout) {
+    return (layout || itemLayout).map(r => r.map(i => getItemNum(i)));
+}
+function serializeItems() {
+	var newMap = {};
+	Object.keys(item_status).forEach(k => {
+		if (item_status[k] != item_data[k].defcount)
+			newMap[getItemNum(k)] = item_status[k];
+	})
+    return newMap;
+}
+
 function serializeChests() {
-    return chests.map(chest => chest.isOpened || false);
+    return chests.map(c => chestOpen(c) ? 1 : 0);
 }
 
 function serializeDungeonChests() {
-    return dungeons.map(dungeon => Object.values(dungeon.chestlist).map(chest => chest.isOpened || false));
+    return dungeons.map(
+		d => Object.values(d.chestlist)
+				.map(
+					c => chestOpen(c) ? 1 : 0
+				));
+}
+
+function serializeSettings() {
+	var newMap = {};
+	settings_data.forEach(s => {
+		var sid    = s[0];
+		var stype  = s[1];
+		var sdef   = s[2];
+		
+		if (logic_state.settings[sid] != sdef)
+			newMap[sid] = logic_state.settings[sid];
+	})
+    return newMap;
+}
+
+function deserializeLayout(ser) {
+    return ser.map(r => r.map(i => lookupItemNum(i)));
+}
+function deserializeItems(ser) {
+	var newMap = {};
+	Object.keys(ser).forEach(k => {
+		item_status[lookupItemNum(k)] = ser[k];
+	})
+    return newMap;
 }
 
 function deserializeChests(serializedChests) {
     for (var i = 0; i < chests.length; i++) {
-        chests[i].isOpened = serializedChests[i];
+        chests_open[chests[i].target] = !!serializedChests[i];
         refreshChest(i);
     }
 }
@@ -171,80 +277,175 @@ function deserializeDungeonChests(serializedDungeons) {
     for (var i = 0; i < dungeons.length; i++) {
         var dungeon = dungeons[i];
         var serializedDungeon = serializedDungeons[i];
-        var chestNames = Object.keys(dungeon.chestlist);
-        for (var j = 0; j < chestNames.length; j++) {
-            dungeon.chestlist[chestNames[j]].isOpened = serializedDungeon[j];
-        }
+		if (serializedDungeon) { //false if we add a dungeon
+			var chestNames = Object.keys(dungeon.chestlist);
+			for (var j = 0; j < chestNames.length; j++) {
+				var target = dungeon.chestlist[chestNames[j]].target;
+				chests_open[target] = !!serializedDungeon[j];
+			}
+		}
     }
+}
+function deserializeSettings(ser) {
+	Object.keys(ser).forEach(k => {
+		var v = ser[k];
+		var si = settings_data_lut[k];
+		var sdata = settings_data[si];
+		
+		if (sdata)
+		{
+			var stype = sdata[1];
+			if (stype == 'bool')
+			{
+				logic_state.settings[k] = !!v;
+			}
+			else if (stype == 'choice')
+			{
+				var sextra = sdata[5];
+				if (sextra.includes(v))
+				{
+					logic_state.settings[k] = v;
+				}
+			}
+			updateLogicSettingInput(k);
+		}
+	})
 }
 
 // Event of clicking a chest on the map
 function toggleChest(x) {
-    chests[x].isOpened = !chests[x].isOpened;
+	var chest = chests[x];
+    chests_open[chest.target] = !chestOpen(chest);
     refreshChest(x);
     saveCookie();
 }
 
-function refreshChest(x) {
-    var stateClass = chests[x].isOpened ? 'opened' : chests[x].isAvailable();
-    document.getElementById(x).className = 'mapspan chest ' + stateClass;
+function refreshChest(i) {
+	var chest = chests[i];
+	var id = 'chest' + i;
+	var elem = el(id);
+	
+	var classList = 'mapspan chest';
+	if (chestOpen(chest)) {
+		classList += ' opened';
+	} else {
+		classList += ' ' + chestClass(chest);
+	}
+	if (chest.type == 'skulltula')
+		classList += ' mapSkulltula';
+	
+    elem.className = classList;
 }
 
 // Highlights a chest location
-function highlight(x) {
-    document.getElementById(x).style.backgroundImage = 'url(images/highlighted.png)';
+function highlightChest(i) {
+	var chest = chests[i];
+	var id = 'chest' + i;
+	var elem = el(id);
+	var loc = logic_world.getLocation(chest.target);
+	
+    elem.classList.add('highlighted');
+	//elem.style.backgroundImage = 'url(images/highlighted.png)';
+	
+	var tt = chest.name;
+	if (chest.type == 'skulltula')
+		tt = '<span class="skulltula"></span>'+tt.replace(/\(GS\)/, '');
+	if (!logic_state.can_reach(loc.parent))
+		tt += '<br><span class="rulefalse">Can\'t reach '+loc.parent.name+'</span>';
+	if (!loc.ruletrue)
+		tt += '<br>Chest Rule: '+toHTMLCompiledRule(loc.rule, logic_state);
+	
+	showTooltip(id, elem, tt);
 }
 
-function unhighlight(x) {
-    document.getElementById(x).style.backgroundImage = 'url(images/poi.png)';
+function unhighlightChest(i) {
+	var chest = chests[i];
+	var id = 'chest' + i;
+	var elem = el(id);
+	
+    //elem.style.backgroundImage = 'url(images/poi.png)';
+	elem.classList.remove('highlighted');
+	
+	hideTooltip(id);
 }
 
 // Highlights a chest location (but for dungeons)
-function highlightDungeon(x) {
-    document.getElementById('dungeon' + x).style.backgroundImage = 'url(images/highlighted.png)';
+function highlightDungeon(d) {
+	var dungeon = dungeons[d];
+	var id = 'dungeon' + d;
+	var elem = el(id);
+    elem.classList.add('highlighted');
+	//elem.style.backgroundImage = 'url(images/highlighted.png)';
+	showTooltip(id, elem, dungeon.name);//+'<br>'+toHTMLCompiledRule(dungeon.rule));
 }
 
-function unhighlightDungeon(x) {
-    if (dungeonSelect != x)
-        document.getElementById('dungeon' + x).style.backgroundImage = 'url(images/poi.png)';
+function unhighlightDungeon(d) {
+	var dungeon = dungeons[d];
+	var id = 'dungeon' + d;
+	var elem = el(id);
+	
+    if (dungeonSelect != d)
+        elem.classList.remove('highlighted');
+		//elem.style.backgroundImage = 'url(images/poi.png)';
+	
+	hideTooltip(id);
 }
 
-function clickDungeon(d) {
-    document.getElementById('dungeon' + dungeonSelect).style.backgroundImage = 'url(images/poi.png)';
-    dungeonSelect = d;
-    document.getElementById('dungeon' + dungeonSelect).style.backgroundImage = 'url(images/highlighted.png)';
-
-    document.getElementById('submaparea').innerHTML = dungeons[dungeonSelect].name;
-    document.getElementById('submaparea').className = 'DC' + dungeons[dungeonSelect].isBeatable();
-    var DClist = document.getElementById('submaplist');
+function populateDungeonChestlist(d) {
+	var DClist = el('submaplist');
     DClist.innerHTML = '';
-
-    for (var key in dungeons[dungeonSelect].chestlist) {
+	
+	for (var key in dungeons[d].chestlist) {
+		var chest = dungeons[d].chestlist[key];
+		if (!showSkulltulas && chest.type == "skulltula")
+			continue;
+		
         var s = document.createElement('li');
-        s.innerHTML = key;
+        s.innerHTML = chest.name.replace(/\(GS\) /g, '');
 
-        if (dungeons[dungeonSelect].chestlist[key].isOpened) {
-            s.className = "DCopened";
-        } else if ( dungeons[dungeonSelect].chestlist[key].isAvailable()) {
-            s.className = "DCavailable";
+		var classname = "";
+		var id = "sml"+chest.id;
+        if (chestOpen(chest)) {
+            classname = "DCopened";
+        } else if ( chestAccessible(chest) ) {
+            classname = "DCavailable";
         } else {
-            s.className = "DCunavailable";
+            classname = "DCunavailable";
         }
-
-        s.onclick = new Function('toggleDungeonChest(this,' + dungeonSelect + ',"' + key + '")');
-        s.onmouseover = new Function('highlightDungeonChest(this)');
-        s.onmouseout = new Function('unhighlightDungeonChest(this)');
+		if (chest.type == "skulltula")
+			classname += " DCskulltula";
+		
+		s.className = classname;
+        s.onclick = new Function('toggleDungeonChest(this,' + d + ',"' + chest.id + '")');
+        s.onmouseover = new Function('highlightDungeonChest('+d+', "'+chest.id+'")');
+        s.onmouseout = new Function('unhighlightDungeonChest('+d+', "'+chest.id+'")');
         s.style.cursor = "pointer";
+		
+		s.id = id;
 
         DClist.appendChild(s);
     }
 }
+function clickDungeon(d) {
+    el('dungeon' + dungeonSelect).classList.remove('highlighted');
+	//el('dungeon' + dungeonSelect).style.backgroundImage = 'url(images/poi.png)';
+    dungeonSelect = d;
+    el('dungeon' + dungeonSelect).classList.add('highlighted');
+	//el('dungeon' + dungeonSelect).style.backgroundImage = 'url(images/highlighted.png)';
 
-function toggleDungeonChest(sender, d, c) {
-    dungeons[d].chestlist[c].isOpened = !dungeons[d].chestlist[c].isOpened;
-    if (dungeons[d].chestlist[c].isOpened)
+    el('submaparea').innerHTML = dungeons[dungeonSelect].name;
+    el('submaparea').className = 'DC' + dungeonClass(dungeons[dungeonSelect]);
+    
+    populateDungeonChestlist(d);
+}
+
+function toggleDungeonChest(sender, d, cid) {
+	var chest = dungeons[d].chestlist[cid];
+	var target = chest.target;
+    chests_open[target] = !chestOpen(chest);
+    if (chests_open[target])
         sender.className = 'DCopened';
-    else if (dungeons[d].chestlist[c].isAvailable())
+    else if (chestAccessible(chest))
         sender.className = 'DCavailable';
     else
         sender.className = 'DCunavailable';
@@ -253,19 +454,40 @@ function toggleDungeonChest(sender, d, c) {
     saveCookie();
 }
 
-function highlightDungeonChest(x) {
-    x.style.backgroundColor = '#282828';
+function highlightDungeonChest(d, cid) {
+	var dungeon = dungeons[d];
+	var chest = dungeons[d].chestlist[cid];
+	var id = 'sml' + chest.id;
+	var elem = el(id);
+	var loc = logic_world.getLocation(chest.target);
+	
+    elem.style.backgroundColor = '#282828';
+	
+	var tt = chest.name;
+	if (!logic_state.can_reach(loc.parent))
+		tt += '<br><span class="rulefalse">Can\'t reach '+loc.parent.name+'</span>';
+	if (!loc.ruletrue)
+		tt += '<br>Chest Rule: '+toHTMLCompiledRule(loc.rule, logic_state);
+	
+	showTooltip(id, elem, tt);
 }
 
-function unhighlightDungeonChest(x) {
-    x.style.backgroundColor = '';
+function unhighlightDungeonChest(d, cid) {
+	var dungeon = dungeons[d];
+	var chest = dungeons[d].chestlist[cid];
+	var id = 'sml' + chest.id;
+	var elem = el(id);
+	
+    elem.style.backgroundColor = '';
+	
+	hideTooltip(id);
 }
 
 function setOrder(H) {
     if (H) {
-        document.getElementById('layoutdiv').classList.remove('flexcontainer');
+        el('layoutdiv').classList.remove('flexcontainer');
     } else {
-        document.getElementById('layoutdiv').classList.add('flexcontainer');
+        el('layoutdiv').classList.add('flexcontainer');
     }
     saveCookie();
 }
@@ -275,6 +497,7 @@ function showPrizes(sender) {
     updateGridItemAll();
     saveCookie();
 }
+
 
 function setGanonLogic(sender) {
     ganonlogic = sender.value;
@@ -297,16 +520,39 @@ function setLens(sender){
 
 
 function setZoom(target, sender) {
-    document.getElementById(target).style.zoom = sender.value / 100;
-    document.getElementById(target).style.zoom = sender.value / 100;
+    el(target).style.setProperty('--size-unit', 32 * (sender.value / 100) + 'px');
+    //el(target).style.zoom = sender.value / 100;
 
-    document.getElementById(target).style.MozTransform = 'scale(' + (sender.value / 100) + ')';
-    document.getElementById(target).style.MozTransformOrigin = '0 0';
+    //el(target).style.MozTransform = 'scale(' + (sender.value / 100) + ')';
+    //el(target).style.MozTransformOrigin = '0 0';
 
-    document.getElementById(target + 'size').innerHTML = (sender.value) + '%';
+    el(target + 'size').innerHTML = (sender.value) + '%';
     saveCookie();
 }
 
+function setSkulltulas(state) {
+	showSkulltulas = state;
+	
+	if (state)
+		document.body.classList.remove('hideSkulltulas');
+	else
+		document.body.classList.add('hideSkulltulas');
+	
+	populateDungeonChestlist(dungeonSelect);
+	updateMap();
+}
+function toggleSkulltulas(sender) {
+	setSkulltulas(!showSkulltulas);
+}
+
+function setSetting(i, v) {
+	var sid    = settings_data[i][0];
+	var stype  = settings_data[i][1];
+	logic_state.settings[sid] = v;
+	
+	saveCookie();
+	updateMap();
+}
 function showSettings(sender) {
     if (editmode) {
         var r, c;
@@ -314,13 +560,13 @@ function showSettings(sender) {
 
         editmode = false;
         updateGridItemAll();
-        showTracker('mapdiv', document.getElementsByName('showmap')[0]);
-        document.getElementById('itemconfig').style.display = 'none';
-        document.getElementById('rowButtons').style.display = 'none';
+        showTracker('mapdiv', elsName('showmap')[0]);
+        el('itemconfig').style.display = 'none';
+        //el('rowButtons').style.display = 'none';
         sender.innerHTML = '🔧';
         saveCookie();
     } else {
-        var x = document.getElementById('settings');
+        var x = el('settings');
         if (!x.style.display || x.style.display == 'none') {
             x.style.display = 'initial';
             sender.innerHTML = 'X';
@@ -331,16 +577,95 @@ function showSettings(sender) {
     }
 }
 
+var tooltipId = null;
+function getDocumentRect(elem)
+{
+	var box = elem.getBoundingClientRect();
+	box = { x: box.x + window.scrollX, y: box.y+scrollY, width: box.width, height: box.height };
+	if (box.width >= 0)
+	{
+		box.left  = box.x;
+		box.right = box.x+box.width;
+	}
+	else
+	{
+		box.left  = box.x+box.width;
+		box.right = box.x;
+	}
+	if (box.height >= 0)
+	{
+		box.top    = box.y;
+		box.bottom = box.y+box.height;
+	}
+	else
+	{
+		box.top    = box.y+box.height;
+		box.bottom = box.y;
+	}
+	return box;
+}
+function showTooltip(id, elem, html) {
+	var ttc = el('tooltipcontainer');
+	var box = getDocumentRect(elem);
+	
+	ttc.innerHTML = '<div>'+html+'</div>';
+	ttc.style.display = 'block';
+	ttc.style.left   = box.left+box.width/2;
+	if (box.top > 100)
+	{
+		ttc.style.bottom = 'calc(100% - '+box.top+'px)';
+		ttc.style.removeProperty('top');
+	}
+	else
+	{
+		ttc.style.top = box.bottom+'px';
+		ttc.style.removeProperty('bottom');
+	}
+	
+	tooltipId = id;
+}
+function hideTooltip(id) {
+	if (!id || tooltipId == id)
+	{
+		var ttc = el('tooltipcontainer');
+		ttc.style.display = 'none';
+		
+		tooltipId = null;
+	}
+}
 
 function showTracker(target, sender) {
     if (sender.checked) {
-        document.getElementById(target).style.display = '';
+        el(target).style.display = '';
     }
     else {
-        document.getElementById(target).style.display = 'none';
+        el(target).style.display = 'none';
     }
 }
 
+var quickstarts = {
+	'kokiri': {
+		'Deku Sticks':   1,
+		'Deku Nuts':     1,
+		'Kokiri Sword':  1,
+		'Deku Shield':   1,
+	//	'Child Trade':   3,
+	//	'Ocarina':       1,
+	}
+}
+function quickstart(tag)
+{
+	var qs = quickstarts[tag];
+	
+	Object.keys(qs).forEach(i => {
+		var v = qs[i];
+		if (item_status[i] < v)
+			item_status[i] = v;
+	})
+	
+    updateGridItemAll();
+	updateMap();
+}
 
 function EditMode() {
     var r, c;
@@ -348,33 +673,46 @@ function EditMode() {
     editmode = true;
     updateGridItemAll();
     showTracker('mapdiv', {checked: false});
-    document.getElementById('settings').style.display = 'none';
-    document.getElementById('itemconfig').style.display = '';
-    document.getElementById('rowButtons').style.display = 'flex';
+    el('settings').style.display = 'none';
+    el('itemconfig').style.display = '';
+    //el('rowButtons').style.display = 'flex';
 
-    document.getElementById('settingsbutton').innerHTML = 'Exit Edit Mode';
+    el('settingsbutton').innerHTML = 'Exit Edit Mode';
 }
 
 
 function ResetLayout() {
-    initGridRow(defaultItemGrid);
+	cookielock = true;
+    initGridRow(gridpreset_natural);
     updateGridItemAll();
+	cookielock = false;
+	saveCookie();
 }
 
 
 function ResetTracker() {
-    chests.forEach(chest => delete chest.isOpened);
-    dungeons.forEach(dungeon => Object.values(dungeon.chestlist).forEach(chest => delete chest.isOpened));
-    items = Object.assign({}, baseItems);
+	stateInit();
+	stateLoadWorld(logic_world);
+	
+	//setupInit();
+	
+    //chests.forEach(chest => delete chest.isOpened);
+    //dungeons.forEach(d => Object.values(d.chestlist).forEach(c => delete c.isOpened));
+    //items = Object.assign({}, baseItems);
 
     updateGridItemAll();
     updateMap();
     saveCookie();
 }
 
+function ResetLogic() {
+	stateResetSettings();
+	settings_data.forEach(s => updateLogicSettingInput(s[0]));
+	saveCookie();
+}
 
 function addItemRow() {
-    var sender = document.getElementById('itemdiv')
+    var sender = el('itemdiv')
     var r = itemLayout.length;
 
     itemGrid[r] = [];
@@ -409,7 +747,7 @@ function addItemRow() {
 
 
 function removeItemRow() {
-    var sender = document.getElementById('itemdiv')
+    var sender = el('itemdiv')
     var r = itemLayout.length - 1;
 
     sender.removeChild(itemGrid[r]['tablerow'])
@@ -423,36 +761,45 @@ function removeItemRow() {
 function addItem(r) {
     var i = itemLayout[r].length
 
-    itemGrid[r][i] = [];
+    var gd = itemGrid[r][i] = [];
     itemLayout[r][i] = 'blank';
 
-    itemGrid[r][i]['item'] = document.createElement('td');
-    itemGrid[r][i]['item'].className = 'griditem';
+    gd['item'] = document.createElement('td');
+    gd['item'].className = 'griditem';
+    gd['item'].onclick       = new Function("return gridItemClick(" + r + "," + i + ",false,false)");
+    gd['item'].oncontextmenu = new Function("return gridItemClick(" + r + "," + i + ",false,true)");
     itemGrid[r]['row'].appendChild(itemGrid[r][i]['item']);
-
-    var tdt = document.createElement('table');
-    tdt.className = 'lonk';
-    itemGrid[r][i]['item'].appendChild(tdt);
-        var tdtr1 = document.createElement('tr');
-        tdt.appendChild(tdtr1);
-            itemGrid[r][i][0] = document.createElement('th');
-            itemGrid[r][i][0].className = 'corner';
-            itemGrid[r][i][0].onclick = new Function("gridItemClick(" + r + "," + i + ",0)");
-            tdtr1.appendChild(itemGrid[r][i][0]);
-            itemGrid[r][i][1] = document.createElement('th');
-            itemGrid[r][i][1].className = 'corner';
-            itemGrid[r][i][1].onclick = new Function("gridItemClick(" + r + "," + i + ",1)");
-            tdtr1.appendChild(itemGrid[r][i][1]);
-        var tdtr2 = document.createElement('tr');
-        tdt.appendChild(tdtr2);
-            itemGrid[r][i][2] = document.createElement('th');
-            itemGrid[r][i][2].className = 'corner';
-            itemGrid[r][i][2].onclick = new Function("gridItemClick(" + r + "," + i + ",2)");
-            tdtr2.appendChild(itemGrid[r][i][2]);
-            itemGrid[r][i][3] = document.createElement('th');
-            itemGrid[r][i][3].className = 'corner';
-            itemGrid[r][i][3].onclick = new Function("gridItemClick(" + r + "," + i + ",3)");
-            tdtr2.appendChild(itemGrid[r][i][3]);
+	
+	var inn = document.createElement('div');
+	inn.className = 'iteminner';
+    inn.onclick       = new Function("evt", "evt.stopPropagation(); return gridItemClick(" + r + "," + i + ",true,false)");
+    inn.oncontextmenu = new Function("evt", "evt.stopPropagation(); return gridItemClick(" + r + "," + i + ",true,true)");
+	gd['item'].appendChild(inn);
+	gd['inner'] = inn;
+	
+    //var tdt = document.createElement('table');
+    //tdt.className = 'lonk';
+    //gd['item'].appendChild(tdt);
+    //    var tdtr1 = document.createElement('tr');
+    //    tdt.appendChild(tdtr1);
+    //        gd[0] = document.createElement('th');
+    //        gd[0].className = 'corner';
+    //        gd[0].onclick = new Function("gridItemClick(" + r + "," + i + ",0)");
+    //        tdtr1.appendChild(gd[0]);
+    //        gd[1] = document.createElement('th');
+    //        gd[1].className = 'corner';
+    //        gd[1].onclick = new Function("gridItemClick(" + r + "," + i + ",1)");
+    //        tdtr1.appendChild(gd[1]);
+    //    var tdtr2 = document.createElement('tr');
+    //    tdt.appendChild(tdtr2);
+    //        gd[2] = document.createElement('th');
+    //        gd[2].className = 'corner';
+    //        gd[2].onclick = new Function("gridItemClick(" + r + "," + i + ",2)");
+    //        tdtr2.appendChild(gd[2]);
+    //        gd[3] = document.createElement('th');
+    //        gd[3].className = 'corner';
+    //        gd[3].onclick = new Function("gridItemClick(" + r + "," + i + ",3)");
+    //        tdtr2.appendChild(gd[3]);
 
     updateGridItem(r, i);
     saveCookie();
@@ -475,44 +822,71 @@ function removeItem(r) {
 
 function updateGridItem(row, index) {
     var item = itemLayout[row][index];
-
+	var ito = item_data[item];
+	var itel = itemGrid[row][index]['item'];
+	
     if (editmode) {
         if (!item || item == 'blank') {
-            itemGrid[row][index]['item'].style.backgroundImage = 'url(images/blank.png)';
-        } else if ((typeof items[item]) == 'boolean') {
-            itemGrid[row][index]['item'].style.backgroundImage = 'url(images/' + item + '.png)';
+            itel.style.backgroundImage = 'url(images/blank.png)';
+        } else if (ito.maxcount == 1 || ito.data.oneimg) {
+			itel.style.backgroundImage = 'url(images/' + ito.pic + '.png)';
         } else {
-            itemGrid[row][index]['item'].style.backgroundImage = 'url(images/' + item + itemsMax[item] + '.png)';
+            itel.style.backgroundImage = 'url(images/' + ito.pic + ito.maxcount + '.png)';
         }
 
-        itemGrid[row][index]['item'].style.border = '1px solid white';
-        itemGrid[row][index]['item'].className = 'griditem true'
+        itel.style.border = '1px solid white';
+        itel.className = 'griditem true'
 
         return;
     }
 
-    itemGrid[row][index]['item'].style.border = '0px';
+    itel.style.border = '0px';
 
     if (!item || item == 'blank') {
-        itemGrid[row][index]['item'].style.backgroundImage = '';
+        itel.style.backgroundImage = '';
         return;
-    }
-
-    if ((typeof items[item]) == 'boolean') {
-        itemGrid[row][index]['item'].style.backgroundImage = 'url(images/' + item + '.png)';
+    } else if (ito.maxcount == 1 || ito.data.oneimg) {
+        itel.style.backgroundImage = 'url(images/' + ito.pic + '.png)';
     } else {
-        itemGrid[row][index]['item'].style.backgroundImage = 'url(images/' + item + items[item] + '.png)';
+		var num = item_status[item];
+		if (num == 0)
+		{
+			if (ito.data.zerosub === true)
+				num = 1;
+			else if (typeof ito.data.zerosub === 'number')
+				num = ito.data.zerosub;
+		}
+        itel.style.backgroundImage = 'url(images/' + ito.pic + num + '.png)';
     }
+	
+	if (item && ito.data.corner) {
+		var inn = itemGrid[row][index]['inner'];
+		if (ito.data.corner == "count") {
+			inn.innerText = item_status[item] ? item_status[item] : "";
+		}
+		else if (Array.isArray(ito.data.corner)) {
+			var val = ito.data.corner[item_status[item]];
+			inn.innerText = val != null ? val : "";
+		}
+		
+		var max = ito.maxcount;
+		if (ito.data.regmax) max = ito.data.regmax;
+		
+		if (item_status[item] >= max)
+			inn.classList.add('itemmax');
+		else
+			inn.classList.remove('itemmax');
+	}
 
-    itemGrid[row][index]['item'].className = 'griditem ' + !!items[item];
+    itel.className = 'griditem ' + !!item_status[item];
 
-    if (medallions[item] !== undefined) {
-        if (showprizes) {
-            itemGrid[row][index][3].style.backgroundImage = 'url(images/' + dungeonImg[medallions[item]] + '.png)';
-        } else {
-            itemGrid[row][index][3].style.backgroundImage = '';
-        }
-    }
+    //if (medallions[item] !== undefined) {
+    //    if (showprizes) {
+    //        itemGrid[row][index][3].style.backgroundImage = 'url(images/' + dungeonImg[medallions[item]] + '.png)';
+    //    } else {
+    //        itemGrid[row][index][3].style.backgroundImage = '';
+    //    }
+    //}
 }
 
 
@@ -562,10 +936,20 @@ function initGridRow(itemsets) {
 }
 
 
-function gridItemClick(row, col, corner) {
+function gridItemClick(row, col, inner, rmb) {
+	//Clear selection, in case the user touched some text
+	if (window.getSelection().empty) {
+		window.getSelection().empty();
+	} else if (window.getSelection().removeAllRanges) {
+		window.getSelection().removeAllRanges();
+	}
+	  
     if (editmode) {
+		if (rmb)
+			return true; //default handler;
+		
         if (selected.item) {
-            document.getElementById(selected.item).style.border = '1px solid white';
+            el(selected.item).style.border = '1px solid white';
             var old = itemLayout[row][col];
 
             if (old == selected.item) {
@@ -576,7 +960,7 @@ function gridItemClick(row, col, corner) {
             itemLayout[row][col] = selected.item;
             updateGridItem(row, col);
             selected = {};
-            document.getElementById(old).style.opacity = 1;
+            el(old).style.opacity = 1;
         } else if (selected.row !== undefined) {
             itemGrid[selected.row][selected.col]['item'].style.border = '1px solid white';
 
@@ -592,52 +976,83 @@ function gridItemClick(row, col, corner) {
         }
     } else {
         var item = itemLayout[row][col];
+		var ito = item_data[item];
 
-        if (medallions[item] !== undefined && showprizes) {
-            if (corner == 3) {
-                medallions[item]++;
-                if (medallions[item] >=  9) {
-                    medallions[item] = 0;
-                }
-            }
-            else {
-                items[item] = !items[item];
-            }
-        }
-        else if ((typeof items[item]) == 'boolean') {
-            items[item] = !items[item];
-        }
-        else {
-            items[item]++;
-            if (items[item] > itemsMax[item]) {
-                items[item] = itemsMin[item];
-            }
-        }
+		if (ito)
+		{
+			/*
+			if (medallions[item] !== undefined && showprizes) {
+				if (corner == 3) {
+					medallions[item]++;
+					if (medallions[item] >=  9) {
+						medallions[item] = 0;
+					}
+				} 
+				else {
+					item_status[item] = item_status[item] ? 0 : 1;
+				}
+			}
+			else */if (ito.maxcount == 1) {
+				item_status[item] = item_status[item] ? 0 : 1
+			}
+			else {
+				do {
+					if (rmb)
+					{
+						item_status[item]--;
+						if (item_status[item] < ito.mincount) {
+							item_status[item] = ito.maxcount;
+						}
+					}
+					else
+					{
+						item_status[item]++;
+						if (item_status[item] > ito.maxcount) {
+							item_status[item] = ito.mincount;
+						}
+					}
+				} while (ito.data.skip && ito.data.skip.includes(item_status[item]));
+			}
+		}
 
         updateMap();
         updateGridItem(row,col);
     }
     saveCookie();
+	return false;
 }
 
 function updateMap() {
+	stateExploreWorld(true);
+	
     for (k = 0; k < chests.length; k++) {
-        if (!chests[k].isOpened)
-            document.getElementById(k).className = 'mapspan chest ' + chests[k].isAvailable();
+		var chest = chests[k];
+        if (!chestOpen(chest))
+		{
+			refreshChest(k)
+		}
     }
     for (k = 0; k < dungeons.length; k++) {
-        document.getElementById('dungeon' + k).className = 'mapspan dungeon ' + dungeons[k].canGetChest();
-
+		var dungeon = dungeons[k];
+		var elem = el('dungeon' + k);
+        elem.className = 'mapspan dungeon ' + dungeonClass(dungeons[k]);
+		
+		if (dungeonLocCount(dungeon) == 0)
+			elem.style.display = 'none';
+		else
+			elem.style.removeProperty('display');
+		
         var DCcount = 0;
-        for (var key in dungeons[k].chestlist) {
-            if (dungeons[k].chestlist.hasOwnProperty(key)) {
-                if (!dungeons[k].chestlist[key].isOpened && dungeons[k].chestlist[key].isAvailable()) {
+        for (var key in dungeon.chestlist) {
+            if (dungeon.chestlist.hasOwnProperty(key)) {
+				var chest = dungeon.chestlist[key];
+                if (!chestOpen(chest)&& chestAccessible(chest)) {
                     DCcount++;
                 }
             }
         }
 
-        var child = document.getElementById('dungeon' + k).firstChild;
+        var child = elem.firstChild;
         while (child) {
             if (child.className == 'chestCount') {
                 if (DCcount == 0) {
@@ -651,17 +1066,26 @@ function updateMap() {
         }
     }
 
-    document.getElementById('submaparea').className = 'DC' + dungeons[dungeonSelect].isBeatable();
-    var itemlist = document.getElementById('submaplist').children;
+    el('submaparea').className = 'DC' + dungeonClass(dungeons[dungeonSelect]);
+    var itemlist = el('submaplist').children;
     for (var item in itemlist) {
         if (itemlist.hasOwnProperty(item)) {
-            if ( dungeons[dungeonSelect].chestlist[itemlist[item].innerHTML].isOpened) {
-                itemlist[item].className = 'DCopened';
-            } else if ( dungeons[dungeonSelect].chestlist[itemlist[item].innerHTML].isAvailable()) {
-                itemlist[item].className = 'DCavailable';
+			var elem = itemlist[item];
+			var cid = elem.id.substring(3);
+			var chest = dungeons[dungeonSelect].chestlist[cid];
+			var classname = '';
+            if ( chestOpen(chest) ) {
+                classname = 'DCopened';
+            } else if ( chestAccessible(chest) ) {
+                classname = 'DCavailable';
             } else {
-                itemlist[item].className = 'DCunavailable';
+                classname = 'DCunavailable';
             }
+			
+			if (chest.type == 'skulltula')
+				classname += ' DCskulltula';
+			
+			itemlist[item].className = classname;
         }
     }
 }
@@ -670,7 +1094,7 @@ function itemConfigClick (sender) {
     var item = sender.id;
 
     if (selected.item) {
-        document.getElementById(selected.item).style.border = '0px';
+        el(selected.item).style.border = '0px';
         sender.style.border = '3px solid yellow';
         selected = {item: item};
     } else if (selected.row !== undefined) {
@@ -685,7 +1109,7 @@ function itemConfigClick (sender) {
         itemLayout[selected.row][selected.col] = item;
         updateGridItem(selected.row, selected.col);
 
-        document.getElementById(old).style.opacity = 1;
+        el(old).style.opacity = 1;
 
         selected = {};
     } else {
@@ -695,37 +1119,29 @@ function itemConfigClick (sender) {
 }
 
 function populateMapdiv() {
-    var mapdiv = document.getElementById('mapdiv');
+    var mapdiv = el('mapdiv');
 
     // Initialize all chests on the map
     for (k = 0; k < chests.length; k++) {
-        var s = document.createElement('span');
-        s.style.backgroundImage = 'url(images/poi.png)';
+		var s = document.createElement('span');
+        //s.style.backgroundImage = 'url(images/poi.png)';
         s.style.color = 'black';
-        s.id = k;
+        s.id = 'chest' + k;
         s.onclick = new Function('toggleChest(' + k + ')');
-        s.onmouseover = new Function('highlight(' + k + ')');
-        s.onmouseout = new Function('unhighlight(' + k + ')');
+        s.onmouseover = new Function('highlightChest(' + k + ')');
+        s.onmouseout = new Function('unhighlightChest(' + k + ')');
         s.style.left = chests[k].x;
         s.style.top = chests[k].y;
-        if (chests[k].isOpened) {
-            s.className = 'mapspan chest opened';
-        } else {
-            s.className = 'mapspan chest ' + chests[k].isAvailable();
-        }
-
-        var ss = document.createElement('span');
-        ss.className = 'tooltip';
-        ss.innerHTML = chests[k].name;
-        s.appendChild(ss);
-
+		
         mapdiv.appendChild(s);
+		
+		refreshChest(k);
     }
 
     // Dungeon bosses & chests
     for (k=0; k<dungeons.length; k++) {
         s = document.createElement('span');
-        s.style.backgroundImage = 'url(images/poi.png)';
+        //s.style.backgroundImage = 'url(images/poi.png)';
         s.id = 'dungeon' + k;
 
         s.onclick = new Function('clickDungeon(' + k + ')');
@@ -733,12 +1149,13 @@ function populateMapdiv() {
         s.onmouseout = new Function('unhighlightDungeon(' + k + ')');
         s.style.left = dungeons[k].x;
         s.style.top = dungeons[k].y;
-        s.className = 'mapspan dungeon ' + dungeons[k].canGetChest();
+        s.className = 'mapspan dungeon '+dungeonClass(dungeons[k]);
 
         var DCcount = 0;
         for (var key in dungeons[k].chestlist) {
             if (dungeons[k].chestlist.hasOwnProperty(key)) {
-                if (!dungeons[k].chestlist[key].isOpened && dungeons[k].chestlist[key].isAvailable()) {
+				var chest = dungeons[k].chestlist[key];
+                if (!chestOpen(chest) && chestAccessible(chest)) {
                     DCcount++;
                 }
             }
@@ -754,51 +1171,33 @@ function populateMapdiv() {
         ss.style.color = 'black'
         s.style.textAlign = 'center';
         ss.display = 'inline-block';
-        ss.style.lineHeight = '24px';
+        //ss.style.lineHeight = '24px';
         s.appendChild(ss);
 
-        var ss = document.createElement('span');
-        ss.className = 'tooltipgray';
-        ss.innerHTML = dungeons[k].name;
-        s.appendChild(ss);
+        //var ss = document.createElement('span');
+        //ss.className = 'tooltipgray';
+        //ss.innerHTML = dungeons[k].name;
+        //s.appendChild(ss);
 
         mapdiv.appendChild(s);
     }
 
-    document.getElementById('submaparea').innerHTML = dungeons[dungeonSelect].name;
-    document.getElementById('submaparea').className = 'DC' + dungeons[dungeonSelect].isBeatable();
-    document.getElementById('dungeon' + dungeonSelect).style.backgroundImage = 'url(images/highlighted.png)';
-    for (var key in dungeons[dungeonSelect].chestlist) {
-        var s = document.createElement('li');
-        s.innerHTML = key
-
-        if (dungeons[dungeonSelect].chestlist[key].isOpened) {
-            s.className = 'DCopened';
-        }
-        else if ( dungeons[dungeonSelect].chestlist[key].isAvailable()) {
-            s.className = 'DCavailable';
-        }
-        else {
-            s.className = 'DCunavailable';
-        }
-
-        s.onclick = new Function('toggleDungeonChest(this,' + dungeonSelect + ',"' + key + '")');
-        s.onmouseover = new Function('highlightDungeonChest(this)');
-        s.onmouseout = new Function('unhighlightDungeonChest(this)');
-        s.style.cursor = 'pointer';
-
-        document.getElementById('submaplist').appendChild(s);
-    }
+    el('submaparea').innerHTML = dungeons[dungeonSelect].name;
+    el('submaparea').className = 'DC'+dungeonClass(dungeons[dungeonSelect]);
+    el('dungeon' + dungeonSelect).classList.add('highlighted');
+	//el('dungeon' + dungeonSelect).style.backgroundImage = 'url(images/highlighted.png)';
+	
+	populateDungeonChestlist(dungeonSelect);
 }
 
 function populateItemconfig() {
-    var grid = document.getElementById('itemconfig');
+    var grid = el('itemconfig');
 
     var i = 0;
 
     var row;
 
-    for (var key in items) {
+    for (var key in item_data) {
         if (i % 10 == 0) {
             row = document.createElement('tr');
             grid.appendChild(row);
@@ -810,65 +1209,128 @@ function populateItemconfig() {
         rowitem.id = key;
         rowitem.style.backgroundSize = '100% 100%';
         rowitem.onclick = new Function('itemConfigClick(this)');
-        if ((typeof items[key]) == 'boolean') {
-            rowitem.style.backgroundImage = 'url(images/' + key + '.png)';
+		var item = item_data[key];
+        if (item.maxcount == 1 || item.data.oneimg) {
+            rowitem.style.backgroundImage = 'url(images/' + item.pic + '.png)';
         } else {
-            rowitem.style.backgroundImage = 'url(images/' + key + itemsMax[key] + '.png)';
+            rowitem.style.backgroundImage = 'url(images/' + item.pic + item.maxcount + '.png)';
         }
         row.appendChild(rowitem);
     }
 }
 
-function isBridgeOpen() {
-    switch (ganonlogic) {
-        case 'Open':
-            return true;
-        case 'Vanilla':
-            return items['ShadowMedallion'] && items['SpiritMedallion'] && items['Light'];
-        case 'Stones':
-            return items['KokiriEmerald'] &&
-                items['GoronRuby'] &&
-                items['ZoraSapphire']
-        case 'Medallions':
-            return items['ForestMedallion'] &&
-                items['FireMedallion'] &&
-                items['WaterMedallion'] &&
-                items['LightMedallion'] &&
-                items['ShadowMedallion'] &&
-                items['SpiritMedallion'];
-        case 'Dungeons':
-            return items['KokiriEmerald'] &&
-                items['GoronRuby'] &&
-                items['ZoraSapphire'] &&
-                items['ForestMedallion'] &&
-                items['FireMedallion'] &&
-                items['WaterMedallion'] &&
-                items['LightMedallion'] &&
-                items['ShadowMedallion'] &&
-                items['SpiritMedallion'];
-        case 'Tokens':
-            return items.Skulltula >= 6;
-    }
-    return false;
+var settings_data_lut = {};
+
+function populateLogicSettings() {
+	var panel = el('logicpanel');
+	settings_data.forEach((s, i) => {
+		var sid    = s[0];
+		var stype  = s[1];
+		var sdef   = s[2];
+		var sgroup = s[3];
+		var stitle = s[4];
+		var sextra = s[5];
+		settings_data_lut[sid] = i;
+		
+		var id = 'logicSetting'+i;
+		var row   = document.createElement('div');
+		var label = document.createElement('label');
+		label.setAttribute('for', id);
+		label.innerText = stitle;
+		row.appendChild(label);
+		
+		var input;
+		if (stype == 'bool')
+		{
+			input = document.createElement('input');
+			input.setAttribute('id', id);
+			input.setAttribute('type', "checkbox");
+			input.checked = sdef;
+			input.onchange = function(e) { setSetting(i, e.target.checked); }
+		
+			row.appendChild(input);
+		}
+		else if (stype == 'choice')
+		{
+			input = document.createElement('select');
+			input.setAttribute('id', id);
+			sextra.forEach(o => {
+				var opt = document.createElement('option');
+				opt.innerText = o;
+				input.appendChild(opt);
+			})
+			input.value = sdef;
+			input.onchange = function(e) { setSetting(i, e.target.value); }
+			row.appendChild(input);
+		}
+		
+		panel.appendChild(row);
+	});
 }
-
+function updateLogicSettingInput(key) {
+	var si = settings_data_lut[key];
+	var sdata = settings_data[si];
+	var stype = sdata[1];
+	
+	if (stype == 'bool')
+	{
+		el('logicSetting'+si).checked = logic_state.settings[key];
+	}
+	else if (stype == 'choice')
+	{
+		var sextra = sdata[5];
+		el('logicSetting'+si).value = logic_state.settings[key];
+	}
+}
 function init() {
-    populateMapdiv();
-    populateItemconfig();
+	populateLogicSettings();
+	
+	loadLogic().then(() => {
+		stateInit();
+		stateLoadWorld(logic_world);
+		
+		//for debugging
+		//make sure all chests point somewhere sensible
+		var test = dungeons.flatMap(d => Object.values(d.chestlist));
+		test = test.concat(chests);
+		test = test.filter(c => !logic_world.locationsByName[c.target]);
+		if (test.length > 0) { console.log(test); throw 'location sanity failed'; }
+		
+		//more debugging
+		testAllRules(logic_state);
+		
+		populateMapdiv();
+		populateItemconfig();
 
-    loadCookie();
-    saveCookie();
+		try {
+			loadCookie();
+		}
+		catch (err)
+		{
+			cookielock = false; //needed since loadCookie returned abnormally.
+			alert("There was an error loading your saved data. Unfortunately, I have to reset it. This may have been caused by an update.")
+			setCookie({});
+			loadCookie();
+		}
+		saveCookie();
+		
+		updateMap();
+	});
 }
 
 function preloader() {
-    for (item in items) {
-        if ((typeof items[item]) == 'boolean') {
+    for (item in items_template) {
+		var pic = item[1];
+		var minnum = item[3];
+		var maxnum = item[4];
+		var data = item[5] || {};
+        if (maxnum == 1 || data.oneimg) {
             var img = new Image();
-            img.src = 'images/' + item + '.png';
+            img.src = 'images/' + pic + '.png';
         } else {
-            for (i = itemsMin[item]; i < itemsMax[item]; i++) {
+            for (i = minnum; i < maxnum; i++) {
                 var img = new Image();
-                img.src = 'images/' + item + i + '.png';
+                img.src = 'images/' + pic + i + '.png';
             }
         }
     }

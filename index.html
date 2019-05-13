@@ -6,6 +6,8 @@
     </head>
 
     <body>
+        <script src="script/ruleparser.js"></script>
+        <script src="script/logic.js"></script>
         <script src="script/items.js"></script>
         <script src="script/chests.js"></script>
         <script src="script/main.js"></script>
@@ -14,28 +16,45 @@
             </div>
             <div id='mapdiv' class='mapdiv'>
                 <div id='submapdiv' class='submapdiv'>
-                    <div align='center'><span id='submaparea' style="font-size:20px">Hyrule</span></div>
-                    <hr style="margin-top: 4px; margin-bottom: 4px">
-                    <ul onselectstart="return false" id='submaplist' style="margin-top: 4px; margin-bottom: 4px; overflow-y: auto; height: 232px;">
+                    <div align='center'><span id='submaparea'>Hyrule</span></div>
+                    <hr>
+                    <ul onselectstart="return false" id='submaplist'>
                     </ul>
                 </div>
             </div>
         </div>
 
         <!-- Setting panel-->
-
-        <button id='settingsbutton' type='button' onclick='showSettings(this)'>🔧</button>
+		
+		<div id='settingspanel'>
+			<button id='skulltulabutton' type='button' onclick='toggleSkulltulas(this)'><span class="skulltula">&nbsp;</span></button>
+			<button id='settingsbutton' type='button' onclick='showSettings(this)'>🔧</button>
+		</div>
         <fieldset id='settings' class='settings'>
-            <legend>Settings</legend>
+            <legend style="background: rgba(0,0,0,0.75);border-radius: 0.4em">Settings</legend>
             <fieldset>
                 <legend>Item Tracker</legend>
                 <button type="button" onclick="EditMode()">Edit Mode</button>
                 <button type="button" onclick="ResetLayout()">Reset Layout</button>
                 <button type="button" onclick="ResetTracker()">Reset Tracker</button>
                 <br>
-                Size<input type="range" name='itemdivsize' value='100' max='200' min='1' onchange="setZoom('itemdiv', this)">
+                Quickstart: <button type="button" onclick="quickstart('kokiri')">Kokiri</button>
+                <br>
+				Size<input type="range" name='itemdivsize' value='100' max='300' min='1' onchange="setZoom('itemdiv', this)">
                 <span id='itemdivsize'>100%</span><br>
                 <input type="checkbox" name="showprizes" checked='true' onchange="showPrizes(this)">Show Medallion Locations<br>
+				<!--
+                <legend>Starts Open</legend>
+                <input type="checkbox" name="openForest"        checked='true' onchange="setStartsOpen(this, 'Forest')" style="display:none"><!- - Forest<br> assumed true for now - ->
+                <input type="checkbox" name="openKakarikoGate"  checked='false' onchange="setStartsOpen(this, 'KakarikoGate')" style="display:none"><!- - Kakariko Gate<br> assumed false for now - ->
+                <input type="checkbox" name="openDoorofTime"    checked='false' onchange="setStartsOpen(this, 'DoorofTime')">Door of Time<br>
+                <input type="checkbox" name="openZorasFountain" checked='false' onchange="setStartsOpen(this, 'ZoraFountain')">Zora's Fountain<br>
+                <legend>Shuffled</legend>
+                <input type="checkbox" name="shuffleOcarinas"   checked='false' onchange="setShuffled(this, 'Ocarinas')">Ocarinas<br>
+                <input type="checkbox" name="shuffleWeirdEgg"   checked='false' onchange="setShuffled(this, 'WeirdEgg')">Weird Egg<br>
+                <input type="checkbox" name="shuffleGerudoCard" checked='false' onchange="setShuffled(this, 'GerudoCard')">Gerudo Card<br>
+                <legend>Glitches</legend>
+                <input type="checkbox" name="glitchWTnoZora" checked='false' onchange="setGlitches(this, 'WTnoZora')">Water Temple without Zora Tunic<br>-->
             </fieldset>
             <fieldset>
                 <legend>Map Tracker</legend>
@@ -45,39 +64,26 @@
                 Position:
                 <input type='radio' name='mapposition' value='Side' checked='true' onclick="setOrder(false)">Side
                 <input type='radio' name='mapposition' value='Below' onclick="setOrder(true)">Below<br>
-                <fieldset>
-                    <legend>Rainbow Bridge Logic</legend>
-                    <input type='radio' name='ganonlogic' value='Open' checked='true' onclick="setGanonLogic(this)">Open
-                    <input type='radio' name='ganonlogic' value='Vanilla' onclick="setGanonLogic(this)">Vanilla<br>
-                    <input type='radio' name='ganonlogic' value='Stones' onclick="setGanonLogic(this)">Stones<br>
-                    <input type='radio' name='ganonlogic' value='Medallions' onclick="setGanonLogic(this)">Medallions<br>
-                    <input type='radio' name='ganonlogic' value='Dungeons' onclick="setGanonLogic(this)">Dungeons<br>
-                    <input type='radio' name='ganonlogic' value='Tokens' onclick="setGanonLogic(this)">100 Gold Skulltula Tokens<br>
-                </fieldset>
-
-
-
-            <fieldset>
-                <legend> Custom Logic</legend>
-                <!--This should be where all the custom logic stuff goes -->
-                <input type="checkbox" name="chulogic" onchange="setChu(this)"> Bombchus in logic?<br>
-                <legend>Lens Logic</legend>
-                <input type="Radio" name="lens" value="All" checked='true' onchange="setLens(this)">Everywhere<br>
-                <input type="Radio" name="lens" value="Semi"  onchange="setLens(this)">Wasteland + Tresure Minigame<br>
-                <input type="Radio" name="lens" value="Low"  onchange="setLens(this)">Tresure Minigame Only<br>
             </fieldset>
-            </fieldset>
+			<fieldset id="logicpanel">
+				<legend>Logic</legend>
+				<button type="button" onclick="ResetLogic()">Reset</button>
+                <!-- Filled dynamically -->
+			</fieldset>
         </fieldset>
 
         <table id='itemconfig' class='itemconfig' style='display:none'></table>
-
-        <script>
+		
+        <footer style='bottom:0; width:100%; text-align: center; position: relative; color:grey'>
+            Ocarina of Time Item Randomizer Tracker v1 (Blue Edition)
+        </footer>
+		
+		<div id='tooltipcontainer'>
+		</div>
+		
+		<script>
             init();
         </script>
-
-        <footer style='bottom:0; width:100%; text-align: center; position: relative; color:grey'>
-            Ocarina of Time Item Randomizer Tracker v1.2
-        </footer>
     </body>
 </html>
 
