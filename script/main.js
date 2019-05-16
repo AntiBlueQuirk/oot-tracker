@@ -109,6 +109,7 @@ var cookieDefault = {
     mZoom: 100,
     mPos: 0,
     prize: 1,
+	showShops: false,
 	showSkulltulas: false,
     //medallions: defaultMedallions,
     grid: serializeLayout(gridpreset_natural),
@@ -117,6 +118,7 @@ var cookieDefault = {
     dungeonChests: serializeDungeonChests(),
 	settings: {},
 }
+var showShops = false;
 var showSkulltulas = false;
 
 var cookielock = false;
@@ -176,6 +178,7 @@ function loadCookie() {
 
     elsName('showprizes')[0].checked = !!cookieobj.prize;
 	
+	setShops(cookieobj.showShops);
 	setSkulltulas(cookieobj.showSkulltulas);
     
 	[
@@ -218,6 +221,7 @@ function saveCookie() {
     cookieobj.dungeonChests = normalizeObj(serializeDungeonChests());
 	cookieobj.settings = normalizeObj(serializeSettings());
 
+	cookieobj.showShops = showShops;
 	cookieobj.showSkulltulas = showSkulltulas;
 	
     setCookie(cookieobj);
@@ -535,6 +539,22 @@ function setZoom(target, sender) {
 
     el(target + 'size').innerHTML = (sender.value) + '%';
     saveCookie();
+}
+
+function setShops(state) {
+	showShops = state;
+	
+	if (state)
+		document.body.classList.remove('hideShops');
+	else
+		document.body.classList.add('hideShops');
+	
+	if (!state && dungeons[dungeonSelect].type == 'shop')
+		clickDungeon(0)
+	updateMap();
+}
+function toggleShops(sender) {
+	setShops(!showShops);
 }
 
 function setSkulltulas(state) {
@@ -1045,35 +1065,41 @@ function updateMap() {
     for (k = 0; k < dungeons.length; k++) {
 		var dungeon = dungeons[k];
 		var elem = el('dungeon' + k);
-        elem.className = 'mapspan dungeon ' + dungeonClass(dungeons[k]);
+        classList = 'mapspan dungeon ' + dungeonClass(dungeons[k]);
+		if (dungeons[k].type == 'shop')
+			classList += ' dungeonshop';
+		elem.className = classList;
 		
 		if (dungeonLocCount(dungeon) == 0)
 			elem.style.display = 'none';
 		else
 			elem.style.removeProperty('display');
 		
-        var DCcount = 0;
-        for (var key in dungeon.chestlist) {
-            if (dungeon.chestlist.hasOwnProperty(key)) {
-				var chest = dungeon.chestlist[key];
-                if (!chestOpen(chest)&& chestAccessible(chest)) {
-                    DCcount++;
-                }
-            }
-        }
+		if (dungeon.type != 'shop')
+		{
+			var DCcount = 0;
+			for (var key in dungeon.chestlist) {
+				if (dungeon.chestlist.hasOwnProperty(key)) {
+					var chest = dungeon.chestlist[key];
+					if (!chestOpen(chest)&& chestAccessible(chest)) {
+						DCcount++;
+					}
+				}
+			}
 
-        var child = elem.firstChild;
-        while (child) {
-            if (child.className == 'chestCount') {
-                if (DCcount == 0) {
-                    child.innerHTML = '';
-                } else {
-                    child.innerHTML = DCcount;
-                }
-                break;
-            }
-            child = child.nextSibling;
-        }
+			var child = elem.firstChild;
+			while (child) {
+				if (child.className == 'chestCount') {
+					if (DCcount == 0) {
+						child.innerHTML = '';
+					} else {
+						child.innerHTML = DCcount;
+					}
+					break;
+				}
+				child = child.nextSibling;
+			}
+		}
     }
 
     el('submaparea').className = 'DC' + dungeonClass(dungeons[dungeonSelect]);
@@ -1159,8 +1185,11 @@ function populateMapdiv() {
         s.onmouseout = new Function('unhighlightDungeon(' + k + ')');
         s.style.left = dungeons[k].x;
         s.style.top = dungeons[k].y;
-        s.className = 'mapspan dungeon '+dungeonClass(dungeons[k]);
-
+        var classList = 'mapspan dungeon '+dungeonClass(dungeons[k]);
+		if (dungeons[k].type == 'shop')
+			classList += ' dungeonshop';
+		s.className = classList;
+		
         var DCcount = 0;
         for (var key in dungeons[k].chestlist) {
             if (dungeons[k].chestlist.hasOwnProperty(key)) {

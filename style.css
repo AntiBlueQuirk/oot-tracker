@@ -101,6 +101,12 @@ body{
 #settingsbutton {
     color: red;
 }
+button#shopsbutton {
+	background-color: #0f0;
+}
+.hideShops #shopsbutton {
+	background-color: #f00;
+}
 button#skulltulabutton {
 	background-color: #0f0;
 }
@@ -234,6 +240,21 @@ label {
     margin-left: calc(var(--size-unit) * -0.375);
     margin-top: calc(var(--size-unit) * -0.375);
     cursor: pointer;
+}
+.dungeonshop {
+	background-image: url('images/RupeeWhite.png');
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: 85%;
+
+	width: calc(var(--size-unit) * 0.65);
+	height: calc(var(--size-unit) * 0.65);
+
+	margin-left: calc(var(--size-unit) * -0.325);
+	margin-top: calc(var(--size-unit) * -0.325);
+}
+.hideShops .dungeonshop {
+	display: none;
 }
 
 .chestCount {
@@ -385,6 +406,13 @@ li.DCskulltula:before{
    width: 1em;
    height: 1em;
    background-image: url('images/Skulltula.png');
+   background-size: contain;
+}
+span.rupee{
+   display: inline-block;
+   width: 1em;
+   height: 1em;
+   background-image: url('images/RupeeWhite.png');
    background-size: contain;
 }
 span.skulltula{
