@@ -116,7 +116,7 @@ function dungeonClass(dungeon)
 
 var cookieDefault = {
     map: 1,
-    iZoom: 150,
+    iZoom: 140,
     mZoom: 100,
     mPos: 0,
     prize: 1,
@@ -950,8 +950,11 @@ function updateGridItem(row, index) {
 		else
 			inn.classList.remove('itemmax');
 	}
-
-    itel.className = 'griditem ' + !!item_status[item];
+	
+	var itemst = !!item_status[item];
+	if (!itemst && ito.data.zerohave)
+		itemst = true;
+    itel.className = 'griditem ' + (itemst ? 'itemgot' : 'itemnotgot');
 
     //if (medallions[item] !== undefined) {
     //    if (showprizes) {
@@ -962,7 +965,21 @@ function updateGridItem(row, index) {
     //}
 }
 
-
+function updateGridRow(r)
+{
+	var hasNonBlank = editmode
+	if (!hasNonBlank)
+		for (c = 0; c < itemLayout[r].length; c++) {
+			var item = itemLayout[r][c];
+			if (item && item != 'blank')
+				hasNonBlank = true;
+		}
+	
+	if (hasNonBlank)
+		el('itemdiv').children[r].classList.remove('blankitemrow')
+	else
+		el('itemdiv').children[r].classList.add('blankitemrow')
+}
 function updateGridItemAll() {
     var r, c;
     for (r = 0; r < itemLayout.length; r++) {
@@ -978,6 +995,8 @@ function updateGridItemAll() {
             itemGrid[r]['addbutton'].style.display = 'none'
             itemGrid[r]['removebutton'].style.display = 'none'
         }
+		
+		updateGridRow(r);
     }
 }
 

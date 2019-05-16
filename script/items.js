@@ -101,10 +101,13 @@ var gridpreset_natural = [
     [
         "Bottle",
         "Bottle with Letter",
-		"Ice Trap",
-		"Magic Meter",
+		"Gerudo Membership Card",
+		"Gold Skulltula Token",
         "Child Trade",
         "Adult Trade",
+	],
+	[
+		"blank",
 	],
     [
         "Kokiri Sword",
@@ -122,6 +125,17 @@ var gridpreset_natural = [
         "Iron Boots",
         "Hover Boots",
 	],
+	[
+        "Wallet",
+        "Magic Meter",
+        "Double Defense",
+		"Piece of Heart",
+		"Heart Container",
+		"Ice Trap",
+	],
+	[
+		"blank",
+	],
     [
         "Zeldas Lullaby",
         "Eponas Song",
@@ -137,7 +151,6 @@ var gridpreset_natural = [
         "Nocturne of Shadow",
         "Requiem of Spirit",
         "Prelude of Light",
-		"Piece of Heart",
     ],
     [
         "Forest Medallion",
@@ -146,15 +159,10 @@ var gridpreset_natural = [
         "Shadow Medallion",
         "Spirit Medallion",
         "Light Medallion",
-		"Heart Container",
     ],
     [
         "Kokiri Emerald",
         "Goron Ruby",
         "Zora Sapphire",
-        "Wallet",
-        "Gerudo Membership Card",
-        "Gold Skulltula Token",
-		"Double Defense",
     ]
 ]

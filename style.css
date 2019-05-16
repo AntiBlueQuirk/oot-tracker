@@ -202,10 +202,10 @@ label {
     height: 50%;
 }
 
-.true{
+.itemgot{
 }
 
-.false{
+.itemnotgot{
     -webkit-filter: grayscale(50%) brightness(30%); /* Safari 6.0 - 9.0 */
     filter: grayscale(50%) brightness(30%);
 }
@@ -267,6 +267,10 @@ label {
     left: 0px;
     justify-content: center;
 	--size-unit: 40px;
+}
+
+.blankitemrow .griditem {
+	height: 1em;
 }
 
 .mapdiv{

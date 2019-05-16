@@ -715,7 +715,7 @@ var items_template = [
 	['Kokiri Boots',                        '', 'Item',             1, 1, 1],
     ['Iron Boots',                          '', 'Item',             0, 0, 1],
     ['Hover Boots',                         '', 'Item',             0, 0, 1],
-    ['Wallet',                              '', 'Item',             0, 0, 3, {corner: [99, 200, 500, 999], zerosub: true, regmax: 2}], //99, 200, 500, 999 (Adult, Giant, Tycoon)
+    ['Wallet',                              '', 'Item',             0, 0, 3, {corner: [99, 200, 500, 999], regmax: 2, zerohave: true}], //99, 200, 500, 999 (Adult, Giant, Tycoon)
     ['Gloves',                              '', 'Item',             0, 0, 3, {zerosub: true}], //None, Goron, Silver, Golden
     ['Scale',                               '', 'Item',             0, 0, 2, {zerosub: true}],
     ['Magic Meter',                         '', 'Item',             0, 0, 2, {zerosub: true}],
