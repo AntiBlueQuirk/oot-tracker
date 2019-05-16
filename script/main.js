@@ -67,18 +67,28 @@ function chestOpen(chest) {
 	var target = chest.target;
 	return target in chests_open && chests_open[target] || false;
 }
+function chestVisible(chest) {
+	return chest.type != 'skulltula' || showSkulltulas;
+}
 function chestAccessible(chest) {
-	return (chest.type != 'skulltula' || showSkulltulas) &&
+	return chestVisible(chest) &&
 	       logic_state.can_reach(logic_world.getLocation(chest.target));
 }
+
+
 function regionAccessible(target) {
 	return logic_state.can_reach(logic_world.getRegion(target));
 }
-
+function dungeonUnopenCount(dungeon) {
+	return Object.values(dungeon.chestlist).reduce((a, c) => a + (
+	//count where this is true:
+		chestVisible(c) && !chestOpen(c)
+	? 1 : 0), 0);
+}
 function dungeonLocCount(dungeon) {
 	return Object.values(dungeon.chestlist).reduce((a, c) => a + (
 	//count where this is true:
-		c.type != 'skulltula' || showSkulltulas
+		chestVisible(c)
 	? 1 : 0), 0);
 }
 function dungeonAccessible(dungeon) {
@@ -98,6 +108,7 @@ function dungeonClass(dungeon)
 {
 	//if (chestOpen(target)) return "opened";
 	var acc = dungeonAccessible(dungeon);
+	if (dungeonUnopenCount(dungeon) == 0) return "opened";
 	if (acc == dungeonLocCount(dungeon)) return "available";
 	if (acc) return "possible";
 	return "unavailable";
@@ -109,6 +120,8 @@ var cookieDefault = {
     mZoom: 100,
     mPos: 0,
     prize: 1,
+	hideUnavailable: true,
+	hideOpened: true,
 	showShops: false,
 	showSkulltulas: false,
     //medallions: defaultMedallions,
@@ -118,6 +131,8 @@ var cookieDefault = {
     dungeonChests: serializeDungeonChests(),
 	settings: {},
 }
+var hideUnavailable = true;
+var hideOpened = true;
 var showShops = false;
 var showSkulltulas = false;
 
@@ -178,6 +193,11 @@ function loadCookie() {
 
     elsName('showprizes')[0].checked = !!cookieobj.prize;
 	
+	setHideUnavailable(cookieobj.hideUnavailable);
+	setHideOpened(cookieobj.hideOpened);
+	elsName('hideUnavailable')[0].checked = !!cookieobj.hideUnavailable;
+	elsName('hideOpened')[0].checked = !!cookieobj.hideOpened;
+	
 	setShops(cookieobj.showShops);
 	setSkulltulas(cookieobj.showSkulltulas);
     
@@ -221,6 +241,8 @@ function saveCookie() {
     cookieobj.dungeonChests = normalizeObj(serializeDungeonChests());
 	cookieobj.settings = normalizeObj(serializeSettings());
 
+	cookieobj.hideUnavailable = hideUnavailable;
+	cookieobj.hideOpened = hideOpened;
 	cookieobj.showShops = showShops;
 	cookieobj.showSkulltulas = showSkulltulas;
 	
@@ -552,11 +574,32 @@ function setShops(state) {
 	if (!state && dungeons[dungeonSelect].type == 'shop')
 		clickDungeon(0)
 	updateMap();
+    saveCookie();
 }
 function toggleShops(sender) {
 	setShops(!showShops);
 }
 
+function setHideUnavailable(state) {
+	hideUnavailable = state;
+	
+	if (state)
+		document.body.classList.add('hideUnavailable');
+	else
+		document.body.classList.remove('hideUnavailable');
+	
+    saveCookie();
+}
+function setHideOpened(state) {
+	hideOpened = state;
+	
+	if (state)
+		document.body.classList.add('hideOpened');
+	else
+		document.body.classList.remove('hideOpened');
+	
+    saveCookie();
+}
 function setSkulltulas(state) {
 	showSkulltulas = state;
 	
@@ -567,6 +610,7 @@ function setSkulltulas(state) {
 	
 	populateDungeonChestlist(dungeonSelect);
 	updateMap();
+    saveCookie();
 }
 function toggleSkulltulas(sender) {
 	setSkulltulas(!showSkulltulas);

@@ -361,6 +361,13 @@ label {
     background-color: rgb(127,127,127);
 }
 
+.hideUnavailable .dungeon.unavailable, .hideUnavailable .chest.unavailable {
+	display: none;
+}
+.hideOpened .dungeon.opened, .hideOpened .chest.opened {
+	display: none;
+}
+
 
 .DCunavailable{
     color: rgb(255,0,0);

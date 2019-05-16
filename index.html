@@ -44,6 +44,8 @@
 				Size<input type="range" name='itemdivsize' value='100' max='300' min='1' onchange="setZoom('itemdiv', this)">
                 <span id='itemdivsize'>100%</span><br>
                 <input type="checkbox" name="showprizes" checked='true' onchange="showPrizes(this)">Show Medallion Locations<br>
+				<input type="checkbox" name="hideUnavailable" checked='true' onchange="setHideUnavailable(this.checked)">Hide Unavailable<br>
+				<input type="checkbox" name="hideOpened" checked='true' onchange="setHideOpened(this.checked)">Hide Opened<br>
 				<!--
                 <legend>Starts Open</legend>
                 <input type="checkbox" name="openForest"        checked='true' onchange="setStartsOpen(this, 'Forest')" style="display:none"><!- - Forest<br> assumed true for now - ->
